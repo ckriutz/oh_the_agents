@@ -21,6 +21,7 @@ from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion, AzureChatPromptExecutionSettings
 from semantic_kernel.functions import KernelArguments, KernelParameterMetadata, KernelPlugin
 from semantic_kernel.prompt_template import PromptTemplateConfig
+from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
 from semantic_kernel.agents import ChatCompletionAgent, AgentGroupChat
 from semantic_kernel.contents import ChatMessageContent, AuthorRole
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
@@ -38,24 +39,40 @@ async def main():
 
     # Create the sidebar, which will contain all the keys.
     st.sidebar.title('🔑 Application Keys')
-    azure_openai_key = st.sidebar.text_input('Azure OpenAI Key', '606954a7565c403395396990c29da1f5')
-    azure_openai_endpoint = st.sidebar.text_input('Azure OpenAI Endpoint', 'https://casey-aoi.openai.azure.com/')
+    azure_openai_key = st.sidebar.text_input('Azure OpenAI Key', '')
+    azure_openai_endpoint = st.sidebar.text_input('Azure OpenAI Endpoint', '')
     azure_openai_version = st.sidebar.text_input('Azure OpenAI Version', '2024-05-01-preview')
     azure_openai_deployment_name = st.sidebar.text_input('Azure OpenAI Deployment Name', 'gpt-4o')
+    bing_api_key = st.sidebar.text_input('Bing API Key', '')
     
     # Define the Kernel
     kernel = Kernel()
 
+    # Add Azure OpenAI Connector
+    chat_completion_service = AzureChatCompletion(
+        deployment_name=azure_openai_deployment_name,  
+        api_key=azure_openai_key,
+        endpoint=azure_openai_endpoint, # Used to point to your service
+        api_version=azure_openai_version, # Used to point to your service
+    )
+
+    connector = BingConnector(bing_api_key)
+    kernel.add_plugin(WebSearchEnginePlugin(connector), "WebSerarch")
+    kernel.add_service(chat_completion_service)
+
+    arguments = KernelArguments(
+        settings=PromptExecutionSettings(function_choice_behavior=FunctionChoiceBehavior.Auto(),)
+    )
 
     # Now we create the form, which will contain the text input, as well as the submit button.
     with st.form('ai_form'):
-        text = st.text_area('Subject:', 'What is the recomendation for what to wear today in Atlanta?')
+        text = st.text_area('Subject:', 'What is the recommendation for what to wear in Seattle in the spring for an adult male?')
 
         submit = st.form_submit_button('Submit')
         if submit:
-
-            print(str(text))
-            #st.write("Submitted text: ", text)
+            response = await kernel.invoke_prompt(text, arguments=arguments)
+            #result = await kernel.invoke(web_plugin["search"], query=text)
+            st.write(response.value)
             
     
 if __name__ == "__main__":
